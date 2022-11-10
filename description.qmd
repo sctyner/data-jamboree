@@ -1,0 +1,348 @@
+---
+title: "Data Jamboree - R"
+author: "Sam Tyner-Monroe"
+format: html
+editor: visual
+---
+
+The data jamboree is a party of computing tools for solving the same data science problem. 
+The main data set is the NYC motor vehicle collisions data. 
+The
+real-time full data with documentation is available from [NYC Open
+Data](https://data.cityofnewyork.us/Public-Safety/Motor-Vehicle-Collisions-Crashes/h9gi-nx95).
+Here we only consider a subset which contains the crashes in [January,
+2022](https://github.com/statds/ids-s22/raw/main/notes/data/nyc_mv_collisions_202201.csv).
+This dataset contains a column of zip code for each crash.
+
+
+There are 178 unique zip codes in this subset data.
+The median household income at the zip code level from the American Community Survey can be obtained from the
+[census with appropriate
+filters](https://data.census.gov/cedsci/table?t=Income%20%28Households,%20Families,%20Individuals%29&g=0400000US36%248600000&y=2020&tid=ACSST5Y2020.S1903). 
+We downloaded the [income data for all the zip codes in the NY State from the 2020 American Community
+Survey](https://github.com/statds/ids-s22/raw/main/notes/data/ACSST5Y2020.S1903_2022-07-29T145042.zip).
+The column `S1903_C03_015E` contains the median income of all 1794 zip codes in NY State.
+The zip code level crash data of NYC can be merged with the median household income when zip code level analyses are of interest. The zip code boundaries of
+NYC can be downloaded from [NYC open
+data](https://data.cityofnewyork.us/Business/Zip-Code-Boundaries/i8iw-xf4u).
+
+
+The scientific exercises of the jamboree are:
+
++ Create a frequency table of the number of crashes by borough.
+
++ Create an `hour` variable with integer values from 0 to 23, and plot of the histogram of crashes by hour.
+
++ Check if the number of persons killed is the summation of the number of pedestrians killed, cyclist killed, and motorists killed. From now on, use the number of persons killed as the sum of the pedestrians, cyclists, and motorists killed.
+
++ Construct a cross table for the number of persons killed by the contributing factors of vehicle one. Collapse the contributing factors with a count of less than 100 to “other”. Is there any association between the contributing factors and the number of persons killed?
+
++ Create a new variable death which is one if the number of persons killed is 1 or more; and zero otherwise. Construct a cross table for death versus borough. Test the null hypothesis that the two variables are not associated.
+
++ Visualize the crashes using their latitude and longitude (and time, possibly in an animation).
+
++ Fit a logistic model with death as the outcome variable and covariates that are available in the data or can be engineered from the data. Example covariates are crash hour, borough, number of vehicles involved, etc. Interpret your results.
+
++ Aggregate the data to the zip-code level and connect with the census data at the zip-code level.
+
++ Visualize and model the count of crashes at the zip-code level.
+
+## Introduction - R for Statistical Computing
+
+There are a great many things to love about R. I love R because it was my first computer language. I love R because I can do just about anything I can imagine in it. I love R because I can solve a problem multiple ways. None of these things are unique to R. 
+
+Speaking of solving a problem multiple ways, I will be focusing on the "tidyverse" way of doing things in R. I fully acknowledge that this is just one way of doing data science in R. It just happens to be a way I like and am an expert in, so that's how I'm doing this analysis. 
+
+```{r message=FALSE, warning=FALSE}
+library(tidyverse)
+library(sf) # for mapping
+```
+
+
+## Get the data 
+
+```{r load_data}
+jan22 <- read_csv("https://raw.githubusercontent.com/statds/ids-s22/main/notes/data/nyc_mv_collisions_202201.csv") 
+
+
+income20 <- read_csv("acs_data/ACSST5Y2020.S1903_data_with_overlays_2022-04-25T213110.csv")
+
+column_names <- as.character(income20[1,])
+```
+
+## View the data 
+
+Examine the first 10 rows of each data set 
+
+### Crash data 
+
+```{r view_data1}
+DT::datatable(head(jan22, 10))
+```
+
+### Census data 
+
+```{r view_data2}
+DT::datatable(head(income20, 10))
+```
+
+## Data cleaning 
+
+### Crash Data 
+
+A few things to note: 
+
+- Borough variable looks to have a lot of missing values
+- Latitude and longitude also have many missing
+- ZIP code is numeric, but should be a string 
+- Street names have a mix of cases 
+- Date variable is not a date object
+
+```{r table_borough}
+jan22 %>% 
+  janitor::tabyl(BOROUGH) %>% 
+  knitr::kable(digits = 3, caption = "Frequency table of number of crashes by borough. Over one third are missing.")
+```
+
+```{r location_miss}
+jan22 %>% 
+  count(is.na(LOCATION)) %>% 
+  mutate(percent = n/sum(n))
+# idea: could use lat, long to fill in some of the missing borough information
+```
+
+
+```{r clean_dat1}
+jan22 <- jan22 %>% 
+  mutate(`ZIP CODE` = as.character(`ZIP CODE`),
+         `ZIP CODE` = str_pad(`ZIP CODE`, width = 5,
+                              side = 'left', pad = '0'),
+         across(contains("STREET"), str_to_lower),
+         hour = lubridate::hour(`CRASH TIME`),
+         `CRASH DATE` = parse_date(`CRASH DATE`,
+                                   format = "%m/%d/%Y"))
+```
+
+### Sum of persons killed
+
+> Check if the number of persons killed is the summation of the number of pedestrians killed, cyclist killed, and motorists killed. From now on, use the number of persons killed as the sum of the pedestrians, cyclists, and motorists killed.
+
+```{r clean_dat2}
+deaths <- jan22 %>% 
+  select(COLLISION_ID, contains("KILLED")) %>% 
+  rowwise() %>% 
+  mutate(total_persons_killed = sum(`NUMBER OF PEDESTRIANS KILLED`, 
+                     `NUMBER OF CYCLIST KILLED`,
+                     `NUMBER OF MOTORIST KILLED`),
+         sums_match = `NUMBER OF PERSONS KILLED` == total_persons_killed)
+  
+deaths %>% 
+  count(sums_match) %>% 
+  knitr::kable(caption= "How often do the columns not sum correctly?")
+
+deaths %>% 
+  filter(!sums_match) %>% 
+  DT::datatable()
+
+jan22 <- jan22 %>% 
+  left_join(deaths %>% 
+              select(COLLISION_ID, total_persons_killed))
+```
+
+## Exploratory data analysis 
+
+### Histogram of Crashes by Hour 
+
+```{r}
+ggplot(data = jan22) + 
+  geom_histogram(aes(x = hour), 
+                 binwidth = 1, center = .5,
+                 color = "black", 
+                 fill = "white") +
+  scale_x_continuous(breaks = 0:23) +
+  labs(x = "Hour of Day (0 = Midnight)",
+       y = "Count",
+       title = "The most crashes occur between midnight and one a.m.")
+```
+
+### Persons killed by contributing factors 
+
+```{r}
+jan22 %>% 
+  mutate(cont_fct_1 = fct_lump_min(
+    `CONTRIBUTING FACTOR VEHICLE 1`, min = 100
+  )) %>% 
+  count(cont_fct_1, 
+        wt = total_persons_killed,
+        sort = T) %>% 
+  DT::datatable(colnames = c(
+    "Contributing Factor 1", 
+    "Total number of Persons Killed"
+  ), caption = "Most deaths occur when the contributing factor is unspecified.")
+```
+
+### Deaths By Borough
+
+```{r}
+jan22 <- jan22 %>% 
+  mutate(death = as.numeric(total_persons_killed > 0))
+
+jan22 %>% 
+  count(BOROUGH, wt = death, sort = T) %>% 
+  DT::datatable(colnames = c("Borough", "Number of Fatal Crashes")) 
+```
+
+```{r}
+# test the null hypothesis that the two variables (death, borough) are not associated
+
+# from the {infer} package
+chisq_test(
+  jan22 %>% 
+    #filter(!is.na(BOROUGH)) %>%
+    mutate(death = as.factor(death)), 
+  death ~ BOROUGH
+)
+```
+
+### Visualize the crashes 
+
+```{r, eval = FALSE}
+latlon_data <- jan22 %>% 
+  filter(!is.na(LATITUDE) & LATITUDE != 0) %>% 
+  select(date = `CRASH DATE`, 
+         time = `CRASH TIME`, 
+         BOROUGH, ZIP = `ZIP CODE`,
+         lat = LATITUDE, long = LONGITUDE,
+         n_injured = `NUMBER OF PERSONS INJURED`, total_persons_killed, death)
+
+borough_sf <- nycgeo::borough_sf %>% 
+          st_transform(crs="+proj=longlat +datum=WGS84")
+library(sf)
+ggplot() + 
+  geom_sf(data = borough_sf, aes(geometry = geometry, fill = borough_name))
+
+library(leaflet)
+# interactive, but can't do animations
+leaflet(data = borough_sf) %>%
+  addTiles() %>%  
+  addPolygons(color = "#444444", 
+              weight = .5, 
+              smoothFactor = 0.5) %>% 
+   addCircles(data = latlon_data, lng = ~long, lat = ~lat, weight = 1,
+    popup = ~n_injured)
+
+library(ggmap)
+test <- get_stamenmap( bbox = c(left = -74.3, bottom = 40.5, right = -73.7, top = 41.0), zoom = 10, maptype = "toner-lite")
+ggmap(test) + 
+  geom_point(data = latlon_data, aes(x = long, y = lat), color = 'red', size = .2)
+
+my_make_dttm <- function(date, time){
+  
+  yr <- lubridate::year(date)
+  mon <- lubridate::month(date)
+  dy <- lubridate::day(date)
+  hr <- lubridate::hour(time)
+  mnt <- lubridate::minute(time)
+  sec <- lubridate::second(time)
+  
+  lubridate::make_datetime(yr, mon, dy, hr, mnt, sec, tz = Sys.timezone())
+  
+}
+
+latlon_data <- latlon_data %>% 
+  mutate(date_time = map2(date, time, my_make_dttm)) %>% 
+  unnest(date_time)
+
+min(latlon_data$date_time)
+every_minute <- seq.POSIXt(
+  as.POSIXct(min(latlon_data$date_time)),
+  as.POSIXct(max(latlon_data$date_time)), 
+  by = "1 min")
+
+
+minute_data <- tibble(minute = every_minute) %>% 
+  full_join(latlon_data, by = c("minute" = "date_time"))
+
+library(gganimate)
+minute_data %>% 
+  slice(1:100) %>%
+  ggplot() + 
+  geom_point(aes(x = long, y = lat), color = 'red', size = 1) + 
+  transition_time(minue)
+
+```
+
+### Aggregate data to zip code level
+
+```{r}
+zip_counts <- jan22 %>% 
+  count(`ZIP CODE`)
+
+head(zip_counts)
+```
+
+### Connect zip-level data with census data 
+
+But first... revisit those census variable names. 
+
+```{r}
+tibble(name = column_names) %>% 
+  filter(str_detect(name, "!!")) %>% 
+  separate(name, into = c(
+    "measure", "quantity", "variable",
+    "unit", "category", "subcategory"),
+    sep = "!!", remove = FALSE) -> census_vars
+
+DT::datatable(census_vars)
+```
+Observations: 
+
+- There are 3 quantity types being measured: median income, number, and percent distribution. Focus only on income variables since this is income data. 
+- Half of the variables are margin of error of the estimate. Just use estimate for now. 
+
+```{r}
+census_vars %>% 
+  filter(str_detect(quantity, "income"),
+         str_detect(measure, "Error", negate = T)) -> income_vars
+
+DT::datatable(income_vars)
+```
+
+That brings us to 40 variables as opposed to 240. 
+
+Now, I can start joining the data sources.
+
+```{r}
+income_small <- income20 %>% 
+  # remove the first row which is actually the column names 
+  slice(-1) %>% 
+  # name the columns something human readable
+  set_names(nm = column_names) %>% 
+  # only select id and the income vars
+  select(id, all_of(income_vars$name)) %>% 
+  # make sure zip is only 5 digits
+  mutate(zip = str_extract(id, "[0-9]{5}$")) %>% 
+  select(-id) %>% relocate(zip) %>% 
+  pivot_longer(-zip, names_to = "variable",
+               values_to = "value") %>% 
+  # clean up names 
+  mutate(variable = str_remove_all(variable, "Estimate!!Median income \\(dollars\\)!!"),
+         variable = str_replace_all(variable, "HOUSEHOLD ", "hh_"),
+         variable = str_replace_all(variable, "HOUSEHOLDS|households", "hhs"),
+         variable = str_replace_all(variable, "!!", "_"),
+         variable = str_replace_all(variable, "HOUSEHOLDER|householder", "hoh"),
+         variable = str_replace_all(variable,
+          " BY RACE AND HISPANIC OR LATINO ORIGIN OF ", 
+          "_race_ethn_" ),
+         variable = str_replace_all(variable,
+                 "One race--", "1race")) %>% 
+  pivot_wider(names_from = variable, values_from = value)
+
+# finally join 
+crash_income <- zip_counts %>% 
+  rename(zip = `ZIP CODE`) %>% 
+  # use inner join to ditch weird/missing zip codes and
+  # only take the census data we need
+  inner_join(income_small, by = "zip")
+```
+
