@@ -1,0 +1,75 @@
+VEHICLE TYPE CODE 1,n,Size ,Size
+Sedan,3685,Small,small
+Station Wagon/Sport Utility Vehicle,2766,medium,medium
+Taxi,205,small,small
+Bus,151,Very large,very large
+Pick-up Truck,148,medium,medium
+Box Truck,120,large,large
+NA,120,NA,NA
+Bike,54,Very small,very small
+Tractor Truck Diesel,49,Very large,very large
+Van,49,medium,medium
+Ambulance,39,large,large
+E-Bike,30,Very small,very small
+PK,25,medium,medium
+Garbage or Refuse,24,Very large,very large
+Dump,20,Very large,very large
+Motorcycle,20,Very small,very small
+E-Scooter,18,Very small,very small
+Convertible,14,small,small
+Flat Bed,11,large,large
+Snow Plow,11,Very large,very large
+Carry All,9,Very small,very small
+Tanker,8,Very large,very large
+Tractor Truck Gasoline,8,Very large,very large
+AMBULANCE,5,large,large
+Chassis Cab,4,large,large
+Moped,4,Very small,very small
+Armored Truck,3,large,large
+Concrete Mixer,3,Very large,very large
+FIRE TRUCK,3,Very large,very large
+Tow Truck / Wrecker,3,Very large,very large
+3-Door,2,Small,small
+4 dr sedan,2,Small,small
+FIRETRUCK,2,Very large,very large
+Flat Rack,2,Very large,very large
+LIMO,2,Large,large
+Stake or Rack,2,Large,large
+Ambu,1,Very large,very large
+Backhoe,1,Small,small
+Beverage Truck,1,Large,large
+Bulk Agriculture,1,Large,large
+Carriage,1,Large,large
+D2,1,large,large
+Delivery,1,large,large
+DELV,1,large,large
+FDNY TRUCK,1,Very large,very large
+Fire truck,1,Very large,very large
+Firetruck,1,Very large,very large
+FORD,1,Large,large
+Forklift,1,small,small
+Lunch Wagon,1,small,small
+M2,1,Large,large
+Minibike,1,small,small
+moped,1,small,small
+MOTOR SCOO,1,small,small
+Motorbike,1,small,small
+Motorized Home,1,Very large,very large
+Motorscooter,1,Very small,very small
+Pas (4dr s,1,small,small
+passenger,1,small,small
+Passenger,1,small,small
+Pedicab,1,Very small,very small
+PICK UP TR,1,large,large
+PICK-UP TR,1,large,large
+Power shov,1,small,small
+Refrigerated Van,1,Very large,very large
+School Bus,1,Very large,very large
+SELF,1,Very small,very small
+Tow Truck,1,Very large,very large
+tr,1,Very large,very large
+TRAILER,1,Very large,very large
+Truck,1,Very large,very large
+unk,1,NA,NA
+USPS small,1,large,large
+UTILITY,1,Large,large
