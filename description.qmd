@@ -35,7 +35,7 @@ The scientific exercises of the jamboree are:
 
 + Create a frequency table of the number of crashes by borough. See @tbl-borough. `r emo::ji("white_check_mark")`
 
-+ Create an `hour` variable with integer values from 0 to 23, and plot of the histogram of crashes by hour. See @fig-hour. `r emo::ji("white_check_mark")`
++ Create an `hour` variable with integer values from 0 to 23, and plot of the crashes by hour. See @fig-hour. `r emo::ji("white_check_mark")`
 
 + Check if the number of persons killed is the summation of the number of pedestrians killed, cyclist killed, and motorists killed. From now on, use the number of persons killed as the sum of the pedestrians, cyclists, and motorists killed. See @sec-killed. `r emo::ji("white_check_mark")`
 
@@ -264,20 +264,19 @@ That's somewhat tidier, but by no means is this a [tidy](https://vita.had.co.nz/
 
 ## Exploratory data analysis 
 
-### Histogram of Crashes by Hour 
+### Bar chart of Crashes by Hour 
 
 ```{r crashes_hour}
 #| label: fig-hour
 
 ggplot(data = jan22) + 
-  geom_histogram(aes(x = hour), 
-                 binwidth = 1, center = .5,
+  geom_bar(aes(x = hour), 
                  color = "black", 
                  fill = "white") +
   scale_x_continuous(breaks = 0:23) +
   labs(x = "Hour of Day (0 = Midnight)",
        y = "Count",
-       title = "The most crashes occur between midnight and one a.m.")
+       title = "The most crashes occur between 3 and 4p.m.")
 ```
 
 ### Persons killed by contributing factors {#sec-factors}
